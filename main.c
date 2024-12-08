@@ -23,10 +23,13 @@ void* exploracion(void* args) {
     while (1) {
         char paciente[128];
 	printf("[Exploración] Esperando a un paciente...\n");//Ahora hay que registrar a un paciente
+		printf("[Exploración] Recibido paciente: %s. Realizando exploración...\n", paciente);
+		sleep(tiempo_aleatorio(1, 3));
+		printf("[Exploración] Exploración completa. Notificando diagnóstico...\n");
 
-        printf("[Exploración] Recibido paciente: %s. Realizando exploración...\n", paciente);
-        sleep(tiempo_aleatorio(1, 3));
-        printf("[Exploración] Exploración completa. Notificando diagnóstico...\n");
+		printf("No hay pacientes... Fiesta!! \n");
+
+
 
     }
 }
@@ -54,9 +57,16 @@ void* farmacia(void* args) {
     }
 }
 
+
+
 void main(int argv, char* argc[]) {
 
+	pthread_t hilo_Diagnostico;//Creamos el hilo del diagnostico.
+
+	pthread_create(&hilo_Diagnostico, NULL, diagnostico, NULL);//Esto ejecuta el hilo del diagnostico y entra en bucle infinito.
 	pid_recepcion = fork();
+	struct Paciente *lista_Espera_Pacientes = malloc(30 * sizeof(Paciente));//Puede haber hasta 30 pacientes en espera
+	struct Paciente *lista_Pacientes = malloc(5 * sizeof(Paciente));//Puede haber hasta cinco pacientes en la lista de pacientes
 
 	if (pid_recepcion != 0) {
 		pid_hospital = fork();
@@ -73,21 +83,24 @@ void main(int argv, char* argc[]) {
 
 		}
 	} else {
-		// Proceso recepción
-		printf("[Recepción] Comienzo mi ejecución...\n");
-
-
-    		while (1) {
+		// Proceso recepción, no parece que necesite hilo
+		int n = 0;
+    		while (1) {//Aqui va la recepcion!!
         		char paciente[128];
+    			sleep(tiempo_aleatorio(1, 10));
+				if (lista_Espera_Pacientes != NULL) {
+                    printf("Detectado paciente, verificando solicitud de paciente...\n");
+            		//struct Paciente *paciente = &lista_Espera_Pacientes[n];
+                    //&lista_Pacientes[n] = *paciente;
+                    n++;
+					sleep(tiempo_aleatorio(1, 5));
+					//printf("[Recepción] Registrando nuevo paciente: %s...\n", &paciente->nombre);
+				}
 
-			sleep(tiempo_aleatorio(1, 10));
-
-        		printf("[Recepción] Registrando nuevo paciente: %s...\n", paciente);
-				Paciente pac1;
-                inicializar_Paciente(&pac1, 21, "Mikel", "Oria Uria", 20, "Mucha fiebre");
-                mostrar_Paciente(&pac1);
     		}
 	}
 
+	free(lista_Espera_Pacientes);
+    free(lista_Pacientes);
 	exit(0);
 }
