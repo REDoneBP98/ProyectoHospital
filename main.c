@@ -8,12 +8,13 @@
 #include <stdbool.h>
 #include <mqueue.h>
 #include <string.h>
+#include "paciente.h"
 
 int pacientes_dados_de_alta = 0;
 
 pid_t pid_hospital, pid_recepcion;
 
-int tiempo_aleatorio(int min, int max) {
+int tiempo_aleatorio(int min, int max) {//Esto da un tiempo aleatorio entre los dos numeros dados
     return rand() % (max - min + 1) + min;
 }
 
@@ -21,7 +22,7 @@ void* exploracion(void* args) {
     printf("[Exploración] Comienzo mi ejecución...\n");
     while (1) {
         char paciente[128];
-	printf("[Exploración] Esperando a un paciente...\n");
+	printf("[Exploración] Esperando a un paciente...\n");//Ahora hay que registrar a un paciente
 
         printf("[Exploración] Recibido paciente: %s. Realizando exploración...\n", paciente);
         sleep(tiempo_aleatorio(1, 3));
@@ -40,6 +41,7 @@ void* diagnostico(void* args) {
 
     }
 }
+
 
 void* farmacia(void* args) {
     printf("[Farmacia] Comienzo mi ejecución...\n");
@@ -81,7 +83,9 @@ void main(int argv, char* argc[]) {
 			sleep(tiempo_aleatorio(1, 10));
 
         		printf("[Recepción] Registrando nuevo paciente: %s...\n", paciente);
-
+				Paciente pac1;
+                inicializar_Paciente(&pac1, 21, "Mikel", "Oria Uria", 20, "Mucha fiebre");
+                mostrar_Paciente(&pac1);
     		}
 	}
 
