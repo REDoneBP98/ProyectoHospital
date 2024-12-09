@@ -7,8 +7,9 @@
       int final;
     }Cola;
 
-    void inicializar(Cola *cola);
+    void inicializar_Cola(Cola *cola);
     void meter_A_Cola(Cola *cola, struct Paciente *paciente);
+    int verificar_Peticion(Cola *cola, struct Paciente *paciente);
     //void sacar_Cola(Cola *cola);
 
 #endif

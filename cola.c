@@ -20,6 +20,19 @@ void meter_A_Cola(Cola *cola, struct Paciente *paciente){
     }
 }
 
+int verificar_Peticion(Cola *cola, struct Paciente *paciente){
+  int comprobar = 0;
+    for(int i = 0; i < cola->final; i++){
+      if(cola->pacientes[i] == paciente){
+        printf("Peticion denegada, el paciente ya esta en la cola\n");
+        comprobar = 1;
+      }
+    }
+    if(comprobar == 0){
+      meter_A_Cola(cola, paciente);
+    }
+    return comprobar;
+}
 /*
 void sacar_Cola(Cola *cola){
   struct Paciente *paciente = NULL;
