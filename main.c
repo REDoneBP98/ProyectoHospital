@@ -9,6 +9,8 @@
 #include <mqueue.h>
 #include <string.h>
 #include "paciente.h"
+#include "cola.h"
+#include "recepcion.h"
 
 int pacientes_dados_de_alta = 0;
 
@@ -61,12 +63,11 @@ void* farmacia(void* args) {
 
 void main(int argv, char* argc[]) {
 
-	pthread_t hilo_Diagnostico;//Creamos el hilo del diagnostico.
+	//pthread_t hilo_Diagnostico;//Creamos el hilo del diagnostico.
 
-	pthread_create(&hilo_Diagnostico, NULL, diagnostico, NULL);//Esto ejecuta el hilo del diagnostico y entra en bucle infinito.
+	//pthread_create(&hilo_Diagnostico, NULL, diagnostico, NULL);//Esto ejecuta el hilo del diagnostico y entra en bucle infinito.
 	pid_recepcion = fork();
-	struct Paciente *lista_Espera_Pacientes = malloc(30 * sizeof(Paciente));//Puede haber hasta 30 pacientes en espera
-	struct Paciente *lista_Pacientes = malloc(5 * sizeof(Paciente));//Puede haber hasta cinco pacientes en la lista de pacientes
+
 
 	if (pid_recepcion != 0) {
 		pid_hospital = fork();
@@ -84,23 +85,14 @@ void main(int argv, char* argc[]) {
 		}
 	} else {
 		// Proceso recepción, no parece que necesite hilo
-		int n = 0;
     		while (1) {//Aqui va la recepcion!!
         		char paciente[128];
     			sleep(tiempo_aleatorio(1, 10));
-				if (lista_Espera_Pacientes != NULL) {
-                    printf("Detectado paciente, verificando solicitud de paciente...\n");
-            		//struct Paciente *paciente = &lista_Espera_Pacientes[n];
-                    //&lista_Pacientes[n] = *paciente;
-                    n++;
-					sleep(tiempo_aleatorio(1, 5));
-					//printf("[Recepción] Registrando nuevo paciente: %s...\n", &paciente->nombre);
-				}
+                printf("Detectado paciente, verificando solicitud de paciente...\n");
+
 
     		}
 	}
 
-	free(lista_Espera_Pacientes);
-    free(lista_Pacientes);
 	exit(0);
 }
