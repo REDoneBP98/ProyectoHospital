@@ -92,8 +92,19 @@ void main(int argv, char* argc[]) {
 			printf("[Hospital] Comienzo mi ejecución...\n");
 			signal(SIGINT, terminar_hilo);
 
-			while(1);
+			// Preconfiguracion de los hilos
+			pthread_t id_hilos[3];
+			pthread_attr_t attr_hilos[3];
+			void* func_hilos[3] = {exploracion, diagnostico, farmacia};
 
+			// Lanzar los hilos "Exploracion", "Diagnostico" y "Farmacia".
+			int i;
+			for(i = 0; i < 3; i++) {
+				pthread_attr_init(&attr_hilos[i]);
+				pthread_create(&id_hilos[i], &attr_hilos[i], func_hilos[i], NULL);
+			}
+
+			for(i = 0; i < 3; i++) pthread_join(id_hilos[i], NULL);
 		}
 	} else {
 		// Proceso recepción
