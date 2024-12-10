@@ -81,8 +81,6 @@ void main(int argv, char* argc[]) {
 			// Proceso hospital
 			printf("[Hospital] Comienzo mi ejecución...\n");
 
-			// aqui se lanzara una funcion con while 1
-
 		}
 	} else {
 		// Proceso recepción
@@ -91,7 +89,6 @@ void main(int argv, char* argc[]) {
 
     		while (1) {
         		char paciente[128];
-			// aqui se lanzara una funcion con while 1
 
 				sleep(tiempo_aleatorio(1, 10));
 
