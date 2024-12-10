@@ -9,6 +9,8 @@
 #include <mqueue.h>
 #include <string.h>
 
+#define SIGPACIENTEALTA
+
 int pacientes_dados_de_alta = 0;
 
 pid_t pid_hospital, pid_recepcion;
@@ -52,13 +54,21 @@ void* farmacia(void* args) {
     }
 }
 
-void main(int argv, char* argc[]) {
+void terminar_hilo(int sig) {
+	exit(0);
+}
 
+void main(int argv, char* argc[]) {
 	pid_recepcion = fork();
 
 	if (pid_recepcion != 0) {
 		pid_hospital = fork();
 		if (pid_hospital != 0) {
+			printf("[PADRE (%d)] A la espera del fin de hijos.\n", getpid());
+
+			printf("No hacer nada!\n");
+			signal(SIGINT, SIG_IGN);
+
 			// Proceso padre
 			int fin_recepcion, fin_hospital, estado, pid_recibida;
 			fin_recepcion = 0;
@@ -75,28 +85,29 @@ void main(int argv, char* argc[]) {
 			}
 
 			// Ambos procesos han finalizado
-			printf("[PADRE] Fin del proceso padre.");
+			printf("[PADRE] Fin del proceso padre.\n");
 
 		} else {
 			// Proceso hospital
 			printf("[Hospital] Comienzo mi ejecución...\n");
+			signal(SIGINT, terminar_hilo);
+
+			while(1);
 
 		}
 	} else {
 		// Proceso recepción
 		printf("[Recepción] Comienzo mi ejecución...\n");
+		signal(SIGINT, terminar_hilo);
 
+		while (1) {
+			char paciente[128];
 
-    		while (1) {
-        		char paciente[128];
+			sleep(tiempo_aleatorio(1, 10));
 
-				sleep(tiempo_aleatorio(1, 10));
-
-        		printf("[Recepción] Registrando nuevo paciente: %s...\n", paciente);
-
-    		}
+			printf("[Recepción] Registrando nuevo paciente: %s...\n", paciente);
+		}
 	}
 
 	exit(0);
 }
-
