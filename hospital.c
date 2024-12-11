@@ -18,12 +18,18 @@
 // al usar semaforos.
 #define COLA_RECEP_EXPLOR "/recepexplor"
 mqd_t cola_recep_explor;
-// El semaforo nos ayuda para la exclusion mutua
-// de la cola.
-#define SEM_COLA_RECEP_EXPLOR "/semrecepexplor"
-sem_t* sem_cola_recep_explor;
+
+#define NOMBRE_PACIENTE_LEN 128
 
 int pacientes_dados_de_alta = 0;
+
+#define SEM_DIAGNOSTICO "/semdiagnostico"
+sem_t* sem_diagnostico;
+
+#define SEM_FARMACIA "/semfarmacia"
+sem_t* sem_farmacia;
+
+#define SENYAL_FARMACIA_RECEPCION SIGUSR1
 
 pid_t pid_hospital, pid_recepcion;
 
@@ -31,76 +37,88 @@ int tiempo_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
 }
 
+char* generar_nombre_paciente();
+
 void* exploracion(void* args) {
-	printf("[Exploración] Comienzo mi ejecución...\n");
+	printf(" [Exploración] Comienzo mi ejecución...\n");
 
 	while (1) {
 		int resultado;
-		char paciente[128];
-		printf("[Exploración] Esperando a un paciente...\n");
+		char paciente[NOMBRE_PACIENTE_LEN];
+		printf(" [Exploración] Esperando a un paciente...\n");
 
-		sem_wait(sem_cola_recep_explor);
 		resultado = mq_receive(cola_recep_explor, paciente, sizeof(paciente), 0);
-		sem_post(sem_cola_recep_explor);
 
 		if(resultado == -1) {
-			if(errno == EAGAIN) {
-				sleep(1);
-				continue;
-			}
-
-			fprintf(stderr, "[ERROR][Exploración] Error al leer de la cola. (Codigo: %d)\n", errno);
+			fprintf(stderr, " [ERROR][Exploración] Error al leer de la cola. (Codigo: %d)\n", errno);
 			exit(1);
 		} else {
-			printf("\t[Exploración] Se ha recibido el paciente \"%s\"\n", paciente);
+			printf(" [Exploración] Se ha recibido el paciente \"%s\"\n", paciente);
 
-			printf("[Exploración] Recibido paciente: %s. Realizando exploración...\n", paciente);
+			printf(" [Exploración] Recibido paciente: %s. Realizando exploración...\n", paciente);
 			sleep(tiempo_aleatorio(1, 3));
-			printf("[Exploración] Exploración completa. Notificando diagnóstico...\n");
+			printf(" [Exploración] Exploración completa. Notificando diagnóstico...\n");
+
+			// Notificar que un paciente pasa a diagnostico (sem + 1)
+			sem_post(sem_diagnostico);
 		}
 	}
 }
 
 void* diagnostico(void* args) {
-    printf("[Diagnóstico] Comienzo mi ejecución...\n");
+    printf("  [Diagnóstico] Comienzo mi ejecución...\n");
     while (1) {
-
-        printf("[Diagnóstico] Realizando pruebas diagnósticas...\n");
+		sem_wait(sem_diagnostico);
+        printf("  [Diagnóstico] Realizando pruebas diagnósticas...\n");
         sleep(tiempo_aleatorio(5, 10));
-        printf("[Diagnóstico] Diagnóstico completado. Notificando farmacia...\n");
-
+        printf("  [Diagnóstico] Diagnóstico completado. Notificando farmacia...\n");
+		sem_post(sem_farmacia);
     }
 }
 
 void* farmacia(void* args) {
-    printf("[Farmacia] Comienzo mi ejecución...\n");
+	int pid_recepcion = *((int *)args);
+    printf("   [Farmacia] Comienzo mi ejecución...\n");
     while (1) {
-
-        printf("[Farmacia] Preparando medicación...\n");
+		sem_wait(sem_farmacia);
+        printf("   [Farmacia] Preparando medicación...\n");
         sleep(tiempo_aleatorio(1, 3));
-        printf("[Farmacia] Medicación lista. Enviando señal de alta...\n");
-
+        printf("   [Farmacia] Medicación lista. Enviando señal de alta...\n");
+		// TODO: Mandar señal a recepcion
+		// printf("MANDAR AL PID RECEPCION: %d", pid_recepcion);
+		kill(pid_recepcion, SENYAL_FARMACIA_RECEPCION);
     }
+}
+
+void contabilizar_salida(int sig) {
+	pacientes_dados_de_alta++;
+	printf("[Recepción] <- Un paciente sale... %d dados de alta en total.\n", pacientes_dados_de_alta);
+	signal(SENYAL_FARMACIA_RECEPCION, contabilizar_salida);
 }
 
 void terminar_hilo(int sig) {
 	exit(0);
 }
 
-void main(int argv, char* argc[]) {
+int main(int argv, char* argc[]) {
+	// Asegurar nombres de pacientes aleatorios
+	srand(time(NULL));
+
 	// Asegurarse de que la cola no esta creada (en /dev/mqueue)
 	mq_unlink(COLA_RECEP_EXPLOR);
+
 	// Lo mismo para el semaforo (en /dev/shm)
-	sem_unlink(SEM_COLA_RECEP_EXPLOR);
+	sem_unlink(SEM_DIAGNOSTICO);
+	sem_unlink(SEM_FARMACIA);
 
 	// Crear cola
 	struct mq_attr attr;
 	attr.mq_flags = 0;
 	attr.mq_maxmsg= 1;
-	attr.mq_msgsize = 128;
+	attr.mq_msgsize = NOMBRE_PACIENTE_LEN;
 	attr.mq_curmsgs = 0;
 
-	cola_recep_explor = mq_open(COLA_RECEP_EXPLOR, O_RDWR | O_CREAT | O_NONBLOCK, 0644, &attr);
+	cola_recep_explor = mq_open(COLA_RECEP_EXPLOR, O_RDWR | O_CREAT, 0644, &attr);
 
 	if(cola_recep_explor == (mqd_t)-1) {
 		// ¿Cómo propagamos este error?
@@ -108,10 +126,17 @@ void main(int argv, char* argc[]) {
 		exit(1);
 	}
 
-	// Crear semaforo para la cola
-	sem_cola_recep_explor = sem_open(SEM_COLA_RECEP_EXPLOR, O_CREAT, 0644, 1);
-	if(sem_cola_recep_explor == SEM_FAILED) {
-		perror("Error al crear el semaforo para la cola de recepcion-exploracion.");
+	// Crear semaforo para diagnostico
+	sem_diagnostico = sem_open(SEM_DIAGNOSTICO, O_CREAT, 0644, 0);
+	if(sem_diagnostico == SEM_FAILED) {
+		perror("Error al crear el semaforo para diagnostico.");
+		exit(1);
+	}
+
+	// Crear semaforo para diagnostico
+	sem_farmacia = sem_open(SEM_FARMACIA, O_CREAT, 0644, 0);
+	if(sem_farmacia == SEM_FAILED) {
+		perror("Error al crear el semaforo para farmacia.");
 		exit(1);
 	}
 
@@ -143,9 +168,11 @@ void main(int argv, char* argc[]) {
 			// Ambos procesos han finalizado
 			printf("[PADRE] Fin del proceso padre.\n");
 
-			// Limpiar cola y semaforo.
+			// Limpiar cola y semaforos.
 			mq_unlink(COLA_RECEP_EXPLOR);
-			sem_unlink(SEM_COLA_RECEP_EXPLOR);
+			sem_unlink(SEM_DIAGNOSTICO);
+			sem_unlink(SEM_FARMACIA);
+			printf("[PADRE] Limpieza de colas y semáforos realizada.\n");
 		} else {
 			// Proceso hospital
 			printf("[Hospital] Comienzo mi ejecución...\n");
@@ -160,7 +187,7 @@ void main(int argv, char* argc[]) {
 			int i;
 			for(i = 0; i < 3; i++) {
 				pthread_attr_init(&attr_hilos[i]);
-				pthread_create(&id_hilos[i], &attr_hilos[i], func_hilos[i], NULL);
+				pthread_create(&id_hilos[i], &attr_hilos[i], func_hilos[i], (void *)&pid_recepcion);
 			}
 
 			for(i = 0; i < 3; i++) pthread_join(id_hilos[i], NULL);
@@ -169,30 +196,47 @@ void main(int argv, char* argc[]) {
 		// Proceso recepción
 		printf("[Recepción] Comienzo mi ejecución...\n");
 		signal(SIGINT, terminar_hilo);
+		signal(SENYAL_FARMACIA_RECEPCION, contabilizar_salida);
 		while (1) {
-			char paciente[128] = "Jose";
+			char* paciente = generar_nombre_paciente();
 
 			sleep(tiempo_aleatorio(1, 10));
 
-			printf("[Recepción] Registrando nuevo paciente: %s...\n", paciente);
+			printf("[Recepción] -> Registrando nuevo paciente: %s...\n", paciente);
 
 			int resultado;
 			do {
-				sem_wait(sem_cola_recep_explor);
 				resultado = mq_send(cola_recep_explor, paciente, strlen(paciente) + 1, 0);
-				sem_post(sem_cola_recep_explor);
 
 				if(resultado == -1) {
-					if(errno == EAGAIN) {
-						sleep(1);
-					} else { // ¿Deberiamos de propagar el error?
-						fprintf(stderr, "[ERROR][Recepcion] Error al mandar mensaje en la cola. (Codigo: %d)\n", errno);
-						exit(1);
-					}
+					fprintf(stderr, "[ERROR][Recepcion] Error al mandar mensaje en la cola. (Codigo: %d)\n", errno);
+					exit(1);
 				}
 			} while(errno == EAGAIN); 
 		}
 	}
 
-	exit(0);
+	return 0;
+}
+
+#define NUM_NOMBRES 50
+char* generar_nombre_paciente() {
+	// Nota: Este array de nombres ha sido
+	// generada con ChatGPT.
+	// https://chatgpt.com/share/6759e9f5-8740-800e-a3a8-467ffc634fac
+
+	static char nombres[NUM_NOMBRES][128] = {
+    	"Alejandro", "Beatriz", "Carlos", "Diana", "Eduardo",
+    	"Fernanda", "Gabriel", "Héctor", "Isabel", "Javier",
+    	"Karla", "Luis", "María", "Natalia", "Oscar",
+    	"Patricia", "Quirino", "Rafael", "Sofía", "Tomás",
+    	"Úrsula", "Vicente", "Walter", "Ximena", "Yolanda",
+    	"Zaira", "Andrea", "Braulio", "Camila", "Daniel",
+    	"Esteban", "Francisca", "Guillermo", "Hilda", "Iván",
+    	"José", "Laura", "Martín", "Nicolás", "Olga",
+    	"Paola", "Ramón", "Salvador", "Teresa", "Ulises",
+    	"Valeria", "Wilfredo", "Xiomara", "Yahir", "Zoila"
+	};
+
+	return nombres[rand() % NUM_NOMBRES];
 }
