@@ -11,27 +11,25 @@
 #include <mqueue.h>
 #include <string.h>
 
-// Relacionado con la cola entre
-// los hilos "Recepción" y "Exploración".
-//
-// La cola es no bloqueante, para evitar interbloqueo
-// al usar semaforos.
-#define COLA_RECEP_EXPLOR "/recepexplor"
-mqd_t cola_recep_explor;
-
 #define NOMBRE_PACIENTE_LEN 128
 
 int pacientes_dados_de_alta = 0;
+pid_t pid_hospital, pid_recepcion;
 
+// Cola de "Recepción" -> "Exploración"
+#define COLA_RECEP_EXPLOR "/recepexplor"
+mqd_t cola_recep_explor;
+
+// Semáforo para "Exploración" -> "Diagnóstico"
 #define SEM_DIAGNOSTICO "/semdiagnostico"
 sem_t* sem_diagnostico;
 
+// Semáforo para "Diagnóstico" -> "Farmacia"
 #define SEM_FARMACIA "/semfarmacia"
 sem_t* sem_farmacia;
 
+// Señal para "Farmacia" -> "Recepción"
 #define SENYAL_FARMACIA_RECEPCION SIGUSR1
-
-pid_t pid_hospital, pid_recepcion;
 
 int tiempo_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
