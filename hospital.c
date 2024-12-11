@@ -82,8 +82,6 @@ void* farmacia(void* args) {
         printf("   [Farmacia] Preparando medicación...\n");
         sleep(tiempo_aleatorio(1, 3));
         printf("   [Farmacia] Medicación lista. Enviando señal de alta...\n");
-		// TODO: Mandar señal a recepcion
-		// printf("MANDAR AL PID RECEPCION: %d", pid_recepcion);
 		kill(pid_recepcion, SENYAL_FARMACIA_RECEPCION);
     }
 }
@@ -119,7 +117,6 @@ int main(int argv, char* argc[]) {
 	cola_recep_explor = mq_open(COLA_RECEP_EXPLOR, O_RDWR | O_CREAT, 0644, &attr);
 
 	if(cola_recep_explor == (mqd_t)-1) {
-		// ¿Cómo propagamos este error?
 		perror("[Recepción] Error al abrir la cola.");
 		exit(1);
 	}
